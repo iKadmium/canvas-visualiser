@@ -1,6 +1,6 @@
-import { Renderer } from "./renderer";
+import { FftRenderer } from "./fftRenderer";
 
-const fftSize = 128;
+const fftSize = 2048;
 
 export class RenderManager {
     private frameRate: number = 60;
@@ -11,7 +11,7 @@ export class RenderManager {
     private analyserNode: AnalyserNode;
     private chunks: Blob[];
 
-    constructor(private audio: AudioBuffer, protected canvas: HTMLCanvasElement, private progressBar: HTMLProgressElement, private renderers: Renderer[]) {
+    constructor(private audio: AudioBuffer, protected canvas: HTMLCanvasElement, private progressBar: HTMLProgressElement, private renderers: FftRenderer[]) {
         const { length, sampleRate } = this.audio;
         this.offlineAudioContext = new OfflineAudioContext({ length, sampleRate });
         const audioBufferSourceNode = new AudioBufferSourceNode(this.offlineAudioContext, { buffer: this.audio });
@@ -44,11 +44,10 @@ export class RenderManager {
             this.offlineAudioContext.suspend(suspendTime).then(() => {
                 this.analyserNode.getByteFrequencyData(this.byteFrequencyData);
 
-                const context = this.canvas.getContext('2d');
+                const context = this.canvas.getContext('2d', { willReadFrequently: true });
                 if (context) {
-                    context.fillStyle = "rgb(0, 0, 0)";
-                    context.fillRect(0, 0, this.canvas.width, this.canvas.height);
                     for (const renderer of this.renderers) {
+                        renderer.clear(context);
                         renderer.renderFrame(this.byteFrequencyData, context);
                     }
                 }

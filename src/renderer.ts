@@ -10,5 +10,9 @@ export abstract class Renderer {
         this.xCenter = this.x0 + this.width / 2;
         this.yCenter = this.y0 + this.height / 2;
     }
-    public abstract renderFrame(fftData: Uint8Array, canvasCtx: CanvasRenderingContext2D): void;
+
+    public clear(context: CanvasRenderingContext2D) {
+        context.fillStyle = "rgb(0, 0, 0)";
+        context.fillRect(this.x0, this.y0, this.width, this.height);
+    }
 }
