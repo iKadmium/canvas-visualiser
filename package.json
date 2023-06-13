@@ -10,7 +10,11 @@
   },
   "devDependencies": {
     "@types/audioworklet": "^0.0.46",
+    "@yarnpkg/sdks": "^3.0.0-rc.45",
     "typescript": "^5.0.2",
     "vite": "^4.3.9"
+  },
+  "dependencies": {
+    "jszip": "^3.10.1"
   }
 }

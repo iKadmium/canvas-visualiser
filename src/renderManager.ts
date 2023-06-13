@@ -9,6 +9,7 @@ export class RenderManager {
     private byteFrequencyData: Uint8Array;
     private offlineAudioContext: OfflineAudioContext;
     private analyserNode: AnalyserNode;
+    private chunks: Blob[];
 
     constructor(private audio: AudioBuffer, protected canvas: HTMLCanvasElement, private progressBar: HTMLProgressElement, private renderers: Renderer[]) {
         const { length, sampleRate } = this.audio;
@@ -20,50 +21,44 @@ export class RenderManager {
         this.durationInSeconds = length / sampleRate;
         this.byteFrequencyData = new Uint8Array(this.analyserNode.frequencyBinCount);
         this.renderQuantumInSeconds = 1 / this.frameRate;
+        this.chunks = [];
 
         this.progressBar.max = this.durationInSeconds;
     }
 
     public start() {
-        const stream = this.canvas.captureStream(0);
-        const recorder = new MediaRecorder(stream);
-        this.offlineAudioContext.addEventListener('complete', (_ev) => {
-            recorder.stop();
-        });
-        const promise = new Promise<Blob>((resolve) => {
-            recorder.addEventListener('dataavailable', (ev) => {
-                console.log('chunk');
-                resolve(ev.data);
-            })
-
+        this.chunks = [];
+        const promise = new Promise<Blob[]>((resolve) => {
+            this.offlineAudioContext.addEventListener('complete', (_ev) => {
+                resolve(this.chunks);
+            });
         })
-        recorder.start();
-        this.analyze(1, stream);
+        this.analyze(1);
         return promise;
     }
 
-    public analyze(index: number, stream: MediaStream) {
+    public analyze(index: number) {
         const suspendTime = this.renderQuantumInSeconds * index;
 
         if (suspendTime < this.durationInSeconds) {
             this.offlineAudioContext.suspend(suspendTime).then(() => {
                 this.analyserNode.getByteFrequencyData(this.byteFrequencyData);
 
-                requestAnimationFrame(() => {
-                    const context = this.canvas.getContext('2d');
-                    if (context) {
-                        context.fillStyle = "rgb(0, 0, 0)";
-                        context.fillRect(0, 0, this.canvas.width, this.canvas.height);
-                        for (const renderer of this.renderers) {
-                            renderer.renderFrame(this.byteFrequencyData, context);
-                        }
+                const context = this.canvas.getContext('2d');
+                if (context) {
+                    context.fillStyle = "rgb(0, 0, 0)";
+                    context.fillRect(0, 0, this.canvas.width, this.canvas.height);
+                    for (const renderer of this.renderers) {
+                        renderer.renderFrame(this.byteFrequencyData, context);
                     }
-                    const track = stream.getVideoTracks()[0] as CanvasCaptureMediaStreamTrack;
-                    track.requestFrame();
+                }
+                this.canvas.toBlob((cb) => {
+                    if (cb) {
+                        this.chunks.push(cb);
+                    }
                     this.updateProgressBar(suspendTime);
-                    this.analyze(index + 1, stream);
-
-                });
+                    this.analyze(index + 1);
+                })
             });
         }
 
